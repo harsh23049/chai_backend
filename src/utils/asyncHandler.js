@@ -1,23 +1,39 @@
-//ye async handler middleware hai jo async functions ko handle karta hai
-const asyncHandler = (requestHandler) => {
-    (req, res, next) => {
-        Promise.resolve(requestHandler(req, res, next)).catch((err)=>next(err));
-    }
-}
+import express from "express";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+
+const app = express();
+
+/* ===================== MIDDLEWARES ===================== */
+
+// CORS config (frontend access allow karne ke liye)
+app.use(
+    cors({
+        origin: process.env.CORS_ORIGIN,
+        credentials: true,
+    })
+);
+
+// Body parsers
+app.use(express.json({ limit: "16kb" }));
+app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 
 
-// const asyncHandler = () => {}
-// const asyncHandler = (func) => () => {}
-// const asyncHandler = (func) => async() => {}
 
-//ye try catch wala version hai
-// const asyncHandler = (fn) =>async(req, res, next) => {
-//   try {
-//     await fn(req, res, next);
-//   } catch (error) {
-//     res.status(err.code || 500).json({
-//       success: false,
-//       message: error.message || "Internal Server Error",
-//     });
-//   }
-// }
+/* ===================== ROUTES ===================== */
+
+import userRouter from "./routes/user.routes.js";
+
+// Base route for user APIs
+app.use("/api/v1/user", userRouter);
+
+
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: "Route not found",
+    });
+});
+
+
+export { app };
