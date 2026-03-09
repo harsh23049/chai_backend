@@ -6,11 +6,12 @@ const userSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true,lowercase:true,index:true },
     email: { type: String, required: true, unique: true,trim:true,lowercase:true },
     fullname:{ type: String, required: true, trim: true ,  index:true},
-    avatarUrl: { type: String, default: "" },  //using cloudinary for image hosting
-    coverimageUrl: { type: String, default: "" },
-    watchhistory: { type:Schema.Types.ObjectId, ref: "Video", default: [] },
+    avatar: { type: String, default: "" },  //using cloudinary for image hosting
+    coverImage: { type: String, default: "" },
+    watchhistory: [{type:Schema.Types.ObjectId,ref: "Video", default: []}],
     password: { type: String, required: [true, 'Password is required'] },
-    createdAt: { type: Date, default: Date.now }    
+    createdAt: { type: Date, default: Date.now },
+    refreshToken: { type: String, default: "" }    
 }, {
     timestamps: true
 });
@@ -20,7 +21,6 @@ userSchema.pre("save", async function(next) {
         return next();
     }
     this.password = await bcrypt.hash(this.password, 10);
-    next();
 });
 // password check krne k liye ye method hai
 userSchema.methods.isPasswordcorrect = async function(password) {
@@ -31,7 +31,7 @@ userSchema.methods.isPasswordcorrect = async function(password) {
 // jo hum authentication k liye use karenge
 userSchema.methods.generateAccessToken = function() {
     return jwt.sign({
-        _id: this._id,
+        _id: this._id, //id hamare database me har user ka unique id hota hai jo ki automatically generate hota hai jab hum naya user create karte hain
         email: this.email,
         username: this.username,
         fullname: this.fullname
@@ -51,4 +51,6 @@ userSchema.methods.generateRefreshToken = function() {
         expiresIn: process.env.REFRESH_TOKEN_EXPIRY  
     })
 }
+//User and user diff hai kyonki user hamara model hai aur User hamara collection hai database me
+// User is liye banaya hai taki ham apne database me user collection create kar sake aur usme user ke details store kar sake
 export const User = mongoose.model("User", userSchema);

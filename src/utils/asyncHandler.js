@@ -1,39 +1,17 @@
-import express from "express";
-import cookieParser from "cookie-parser";
-import cors from "cors";
-
-const app = express();
-
-/* ===================== MIDDLEWARES ===================== */
-
-// CORS config (frontend access allow karne ke liye)
-app.use(
-    cors({
-        origin: process.env.CORS_ORIGIN,
-        credentials: true,
-    })
-);
-
-// Body parsers
-app.use(express.json({ limit: "16kb" }));
-app.use(express.urlencoded({ extended: true, limit: "16kb" }));
+// A utility function to handle asynchronous request handlers in Express.js
+// It takes a request handler function as an argument and returns a new function that wraps the original function in a Promise.
+// This allows us to catch any errors that occur in the asynchronous code and pass them to the next middleware (error handling middleware) without having to use try-catch blocks in every request handler.
+// Example usage:
+// const someAsyncHandler = asyncHandler(async (req, res) => {
+//     // some asynchronous code that might throw an error
+//     const data = await someAsyncFunction();
+//     res.json(data);
+// });
+const asyncHandler = (requestHandler) => {
+    return (req, res, next) => {
+        Promise.resolve(requestHandler(req, res, next)).catch((err) => next(err));
+    };
+};
 
 
-
-/* ===================== ROUTES ===================== */
-
-import userRouter from "./routes/user.routes.js";
-
-// Base route for user APIs
-app.use("/api/v1/user", userRouter);
-
-
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        message: "Route not found",
-    });
-});
-
-
-export { app };
+export { asyncHandler };

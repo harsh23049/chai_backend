@@ -27,6 +27,8 @@ import userRouter from "./routes/user.routes.js";
 //routes declaration ke liye base route
 app.use("/api/v1/users", userRouter);
 
-
+//jab hamare server ko start karenge, to ye code execute hoga, aur hamare database se connect hone ki koshish karega, agar connection successful hota hai, to server start ho jayega, otherwise error throw karega
+//http://localhost:8000/api/v1/users/register //ye hame batata hai ki hamare server ka base url kya hai, aur hamare user routes ka base url 
+// kya hai, to jab ham is url par post request bhejenge, to hamara registerUser controller execute hoga, aur hame response me "ok" message milega
 
 export { app };
