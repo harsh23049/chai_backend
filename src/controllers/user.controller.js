@@ -3,7 +3,7 @@ import { APIerror } from '../utils/APIerror.js';
 import { User } from '../models/user.model.js';
 import { uploadImage } from '../utils/cloudinary.js';
 import { APIResponse } from '../utils/APIresponse.js';
-import { use } from 'react';
+// import { use } from 'react';
 // const registerUser = asyncHandler(async(req, res) => {
 //     return res.status(200).json({
 //         message: "ok"
@@ -156,7 +156,19 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const logOutuser = asyncHandler(async(req,res)=>{
-    
+    User.findByIdAndUpdate(
+        req.user._id, 
+        {
+            $set:{
+                refreshToken: undefined
+            }
+        },
+        {
+            new: true
+        })
+    res.clearCookie("refreshToken")
+    res.clearCookie("accessToken")
+    return res.status(200).json(new APIResponse(200, null, "User logged out successfully"))
 });
 
 
