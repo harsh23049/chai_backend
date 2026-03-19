@@ -16,9 +16,9 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 });
 // password ko hash krne k liye ye pre save hook hai
-userSchema.pre("save", async function(next) {
+userSchema.pre("save", async function() {
     if(!this.isModified("password")) {
-        return next();
+        return;
     }
     this.password = await bcrypt.hash(this.password, 10);
 });

@@ -3,6 +3,9 @@ import { APIerror } from '../utils/APIerror.js';
 import { User } from '../models/user.model.js';
 import { uploadImage } from '../utils/cloudinary.js';
 import { APIResponse } from '../utils/APIresponse.js';
+import { verifyJWT } from '../middlewares/auth.middleware.js';
+import jwt from 'jsonwebtoken';
+
 // import { use } from 'react';
 // const registerUser = asyncHandler(async(req, res) => {
 //     return res.status(200).json({
@@ -10,21 +13,37 @@ import { APIResponse } from '../utils/APIresponse.js';
 //     })
 // })
 
+
+
 const generateAccessAndRefreshToken = async (userId) => {
     try {
+        console.log("STEP 1: userId =", userId)
+
         const user = await User.findById(userId)
+        console.log("STEP 2: user =", user)
+
+        if (!user) {
+            throw new APIerror(404, "User not found")
+        }
+
         const accessToken = user.generateAccessToken()
+        console.log("STEP 3: access token generated")
+
         const refreshToken = user.generateRefreshToken()
+        console.log("STEP 4: refresh token generated")
 
         user.refreshToken = refreshToken
-        await user.save({ validateBeforeSave: false }) // ye isliye kiya hai taki user save karte time password ko dobara hash na kare kyonki password hamare user model me pre save hook me hash ho raha hai aur agar hum user.save() karenge to password dobara hash ho jayega aur user ke login hone me problem aayegi isliye validateBeforeSave=false use kiya hai taki pre save hook skip ho jaye aur password dobara hash na ho
+        await user.save({ validateBeforeSave: false })
+
+        console.log("STEP 5: user saved")
+
         return { accessToken, refreshToken }
-    }
-    catch (error) {
+
+    } catch (error) {
+        console.error("❌ REAL ERROR:", error)
         throw new APIerror(500, "something went wrong while generating access and refresh token")
     }
-};
-
+}
 const registerUser = asyncHandler(async (req, res) => {
     //1st step: get user details from frontend(postman)
     const { username, email, fullname, password } = req.body
@@ -171,9 +190,48 @@ const logOutuser = asyncHandler(async(req,res)=>{
     return res.status(200).json(new APIResponse(200, null, "User logged out successfully"))
 });
 
+const refreshAccessToken = asyncHandler(async(req,res)=>{
+    const incomingRefreshToken = req.cookies.refreshToken||req.body.refreshToken
+
+    if(!incomingRefreshToken){
+        throw new APIerror(401,"unauthorized, refresh token not found")
+    }
+try {
+        const decodedToken = jwt.verify(
+            incomingRefreshToken,
+            process.env.REFRESH_TOKEN_SECRET
+        )
+        const user = await User.findById(decodedToken?._id)
+        if(!user){
+            throw new APIerror(401,"invalid refresh token")
+        }
+        if(incomingRefreshToken!==user?.refreshToken){
+            throw new APIerror(401,"refresh token is expired or used")
+        }
+        const { accessToken, newrefreshToken } = await generateAccessAndRefreshToken(user._id)
+    
+        return res
+            .status(200)
+            .cookie("refreshToken", newrefreshToken)
+            .cookie("accessToken", accessToken)
+            .json(
+                new APIResponse(
+                    200,
+                    {
+                        accessToken,
+                        refreshToken: newrefreshToken
+                    },
+                    "Access token refreshed successfully"
+                )
+            )
+} catch (error) {
+    throw new APIerror(401,error?.message||"invalid refresh token")
+}
+})
 
 export {
     registerUser,
     loginUser,
-    logOutuser
+    logOutuser,
+    refreshAccessToken
 };
