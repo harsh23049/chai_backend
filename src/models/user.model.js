@@ -41,7 +41,7 @@ userSchema.methods.generateAccessToken = function() {
         expiresIn: process.env.ACCESS_TOKEN_EXPIRY  
     })
 }
-// ye methosd refresh token generate krne k liye hai
+// ye method refresh token generate krne k liye hai
 userSchema.methods.generateRefreshToken = function() {
     return jwt.sign({
     _id: this._id
