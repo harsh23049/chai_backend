@@ -1,6 +1,12 @@
 //is file ko ham isliye banayenge taki user se related saare routes ko is file me define kar sakein aur phir is file ko ham apne main app.js file me import karke use kar sakein
 import { Router } from "express";
-import { loginUser, registerUser,logOutuser,refreshAccessToken } from "../controllers/user.controller.js";
+import {
+    loginUser, registerUser, logOutuser, refreshAccessToken,
+    changecurrentpassword, getCurrentUserDetails, updateAccountDetails,
+    updateuserAvatar, updateusercoverImage, getUserchannelProfile,
+    getWatchHistory
+}
+    from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
@@ -16,5 +22,14 @@ router.route("/register").post(
 router.route("/login").post(loginUser);
 router.route("/logout").post(verifyJWT, logOutuser);
 router.route("/refresh-token").post(refreshAccessToken);
+router.route("/change-password").post(verifyJWT, changecurrentpassword);
+router.route("/me").get(verifyJWT, getCurrentUserDetails);
+router.route("/update-account").put(verifyJWT, updateAccountDetails);
 
-export default router 
+router.route("/update-avatar").put(verifyJWT, upload.single("avatar"), updateuserAvatar);
+router.route("/update-cover").put(verifyJWT, upload.single("coverImage"), updateusercoverImage);
+
+router.route("/channel/:username").get(getUserchannelProfile);
+router.route("/watch-history").get(verifyJWT, getWatchHistory);
+
+export default router

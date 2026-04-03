@@ -189,43 +189,57 @@ const logOutuser = asyncHandler(async (req, res) => {
     res.clearCookie("accessToken")
     return res.status(200).json(new APIResponse(200, null, "User logged out successfully"))
 });
-
+// ye controller refresh token ko verify karega aur agar refresh token valid hua to naya access token
+//  aur refresh token generate karke response me bhejega taki frontend naya access token use karke user
+//  ko authenticated rakh sake jab tak refresh token expire nahi ho jata
 const refreshAccessToken = asyncHandler(async (req, res) => {
-    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
+    const incomingRefreshToken = req.cookies.refreshToken;
 
     if (!incomingRefreshToken) {
-        throw new APIerror(401, "unauthorized, refresh token not found")
+        throw new APIerror(401, "Refresh token not found");
     }
+
     try {
         const decodedToken = jwt.verify(
             incomingRefreshToken,
             process.env.REFRESH_TOKEN_SECRET
-        )
-        const user = await User.findById(decodedToken?._id)
+        );
+
+        const user = await User.findById(decodedToken?._id);
+
         if (!user) {
-            throw new APIerror(401, "invalid refresh token")
+            throw new APIerror(401, "Invalid refresh token");
         }
+
         if (incomingRefreshToken !== user?.refreshToken) {
-            throw new APIerror(401, "refresh token is expired or used")
+            throw new APIerror(401, "Refresh token expired or already used");
         }
-        const { accessToken, newrefreshToken } = await generateAccessAndRefreshToken(user._id)
+
+        const { accessToken, refreshToken } =
+            await generateAccessAndRefreshToken(user._id);
+
+        // 🔥 IMPORTANT: update in DB
+        user.refreshToken = refreshToken;
+        await user.save({ validateBeforeSave: false });
+
+        const options = {
+            httpOnly: true,
+            secure: true,
+        };
 
         return res
             .status(200)
-            .cookie("refreshToken", newrefreshToken)
-            .cookie("accessToken", accessToken)
+            .cookie("accessToken", accessToken, options)
+            .cookie("refreshToken", refreshToken, options)
             .json(
                 new APIResponse(
                     200,
-                    {
-                        accessToken,
-                        refreshToken: newrefreshToken
-                    },
+                    { accessToken },
                     "Access token refreshed successfully"
                 )
-            )
+            );
     } catch (error) {
-        throw new APIerror(401, error?.message || "invalid refresh token")
+        throw new APIerror(401, "Invalid or expired refresh token");
     }
 });
 
@@ -270,7 +284,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     if (!fullname || !email) {
         throw new APIerror(400, "fullname and email are required")
     }
-    const user = await User.findByIdAndUpdate(requser?._id,
+    const user = await User.findByIdAndUpdate(req.user?._id,
         {
             $set: {
                 fullname: fullname,
@@ -388,9 +402,9 @@ const getUserchannelProfile = asyncHandler(async (req, res) => {
                     $size: "$subscribed to channels"
                 },
                 issubsribed: {
-                    $cond: {$if:[req.user?._id,"subscribers.subscriber"]},
-                    then:true,
-                    else:false
+                    $cond: { $if: [req.user?._id, "subscribers.subscriber"] },
+                    then: true,
+                    else: false
                 }
             }
         },
@@ -409,19 +423,73 @@ const getUserchannelProfile = asyncHandler(async (req, res) => {
 
     ])
 
-    if(!channel?.length){
-        throw new APIerror(404,"channel not found with this username")
+    if (!channel?.length) {
+        throw new APIerror(404, "channel not found with this username")
     }
 
     return res
         .status(200)
         .json(
-            new APIResponse(200,channel[0], "channel details fetched succesfully")
+            new APIResponse(200, channel[0], "channel details fetched succesfully")
+        )
+})
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                user[0].watchHistory,
+                "Watch history fetched successfully"
+            )
         )
 })
 
 
-export { 
+export {
     registerUser,
     loginUser,
     logOutuser,
@@ -431,5 +499,6 @@ export {
     updateAccountDetails,
     updateuserAvatar,
     updateusercoverImage,
-    getUserchannelProfile
+    getUserchannelProfile,
+    getWatchHistory
 };
